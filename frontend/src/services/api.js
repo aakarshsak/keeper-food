@@ -37,6 +37,17 @@ export const foodItemsAPI = {
   
   // Get total count
   getCount: () => api.get('/food-items/count'),
+  
+  // Export food items to CSV
+  exportToCSV: (startDate = null, endDate = null) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    
+    return api.get(`/food-items/export?${params.toString()}`, {
+      responseType: 'blob',
+    });
+  },
 };
 
 export default api;

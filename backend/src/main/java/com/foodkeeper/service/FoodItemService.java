@@ -2,11 +2,16 @@ package com.foodkeeper.service;
 
 import com.foodkeeper.model.FoodItem;
 import com.foodkeeper.repository.FoodItemRepository;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.StringWriter;
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +20,8 @@ public class FoodItemService {
     
     @Autowired
     private FoodItemRepository foodItemRepository;
+    
+    private static final DateTimeFormatter CSV_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     
     // Get all food items ordered by creation date
     public List<FoodItem> getAllFoodItems() {
@@ -115,5 +122,42 @@ public class FoodItemService {
     // Get total count of food items
     public long getTotalCount() {
         return foodItemRepository.count();
+    }
+    
+    // Get food items within a date range (based on creation date)
+    public List<FoodItem> getFoodItemsByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        if (startDate != null && endDate != null) {
+            return foodItemRepository.findByCreatedAtBetween(startDate, endDate);
+        } else if (startDate != null) {
+            return foodItemRepository.findByCreatedAtAfter(startDate);
+        } else {
+            return foodItemRepository.findAllByOrderByCreatedAtDesc();
+        }
+    }
+    
+    // Export food items to CSV
+    public String exportFoodItemsToCSV(LocalDateTime startDate, LocalDateTime endDate) throws IOException {
+        List<FoodItem> items = getFoodItemsByDateRange(startDate, endDate);
+        
+        StringWriter writer = new StringWriter();
+        CSVFormat csvFormat = CSVFormat.DEFAULT.builder()
+                .setHeader("ID", "Name", "Description", "Calories", "Quantity", "Created Date", "Consumed Date")
+                .build();
+        
+        try (CSVPrinter csvPrinter = new CSVPrinter(writer, csvFormat)) {
+            for (FoodItem item : items) {
+                csvPrinter.printRecord(
+                    item.getId(),
+                    item.getName(),
+                    item.getDescription() != null ? item.getDescription() : "",
+                    item.getCalorie() != null ? item.getCalorie() : "",
+                    item.getQuantity() != null ? item.getQuantity() : "",
+                    item.getCreatedAt() != null ? item.getCreatedAt().format(CSV_DATE_FORMATTER) : "",
+                    item.getConsumedDate() != null ? item.getConsumedDate().format(CSV_DATE_FORMATTER) : ""
+                );
+            }
+        }
+        
+        return writer.toString();
     }
 } 

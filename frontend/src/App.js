@@ -3,6 +3,8 @@ import './App.css';
 import FoodItemForm from './components/FoodItemForm';
 import FoodItemList from './components/FoodItemList';
 import SearchBar from './components/SearchBar';
+import CSVExport from './components/CSVExport';
+import EditFoodItemModal from './components/EditFoodItemModal';
 import { foodItemsAPI } from './services/api';
 
 function App() {
@@ -13,6 +15,8 @@ function App() {
   const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   // Load food items on component mount
   useEffect(() => {
@@ -96,6 +100,22 @@ function App() {
     }
   };
 
+  const handleEditFoodItem = (item) => {
+    setEditingItem(item);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleEditModalSave = () => {
+    setSuccess('Food item updated successfully!');
+    loadFoodItems(); // Reload the list
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
   const handleSearch = (term) => {
     setSearchTerm(term);
   };
@@ -144,6 +164,11 @@ function App() {
           <FoodItemForm onSubmit={handleAddFoodItem} />
         </div>
 
+        {/* CSV Export */}
+        <div className="card">
+          <CSVExport />
+        </div>
+
         {/* Search Bar */}
         <SearchBar onSearch={handleSearch} />
 
@@ -169,6 +194,7 @@ function App() {
             <FoodItemList 
               items={filteredItems} 
               onDelete={handleDeleteFoodItem}
+              onEdit={handleEditFoodItem}
               emptyMessage={
                 searchTerm 
                   ? `No food items found matching "${searchTerm}"` 
@@ -183,6 +209,14 @@ function App() {
             />
           )}
         </div>
+        
+        {/* Edit Modal */}
+        <EditFoodItemModal
+          isOpen={isEditModalOpen}
+          onClose={handleEditModalClose}
+          foodItem={editingItem}
+          onSave={handleEditModalSave}
+        />
       </div>
     </div>
   );

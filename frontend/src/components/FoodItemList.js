@@ -1,7 +1,7 @@
 import React from 'react';
 import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 
-const FoodItemList = ({ items, onDelete, emptyMessage }) => {
+const FoodItemList = ({ items, onDelete, onEdit, emptyMessage }) => {
   if (!items || items.length === 0) {
     return (
       <div className="empty-state">
@@ -93,6 +93,13 @@ const FoodItemList = ({ items, onDelete, emptyMessage }) => {
               </div>
             </div>
             <div className="food-item-actions">
+              <button
+                onClick={() => onEdit(item)}
+                className="btn btn-edit"
+                title="Edit this food item"
+              >
+                Edit
+              </button>
               <button
                 onClick={() => onDelete(item.id)}
                 className="btn btn-danger"

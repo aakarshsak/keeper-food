@@ -4,14 +4,18 @@ import com.foodkeeper.model.FoodItem;
 import com.foodkeeper.service.FoodItemService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -151,5 +155,62 @@ public class FoodItemController {
     public ResponseEntity<Long> getTotalCount() {
         long count = foodItemService.getTotalCount();
         return ResponseEntity.ok(count);
+    }
+    
+    // Export food items to CSV
+    @GetMapping("/export")
+    public ResponseEntity<String> exportFoodItemsToCSV(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        try {
+            LocalDateTime start = null;
+            LocalDateTime end = null;
+            
+            // Parse start date if provided
+            if (startDate != null && !startDate.trim().isEmpty()) {
+                try {
+                    start = LocalDate.parse(startDate).atStartOfDay();
+                } catch (Exception e) {
+                    return ResponseEntity.badRequest().body("Invalid start date format. Use YYYY-MM-DD");
+                }
+            }
+            
+            // Parse end date if provided
+            if (endDate != null && !endDate.trim().isEmpty()) {
+                try {
+                    end = LocalDate.parse(endDate).atTime(23, 59, 59);
+                } catch (Exception e) {
+                    return ResponseEntity.badRequest().body("Invalid end date format. Use YYYY-MM-DD");
+                }
+            }
+            
+            String csvContent = foodItemService.exportFoodItemsToCSV(start, end);
+            
+            // Generate filename based on date range
+            String filename = "food_items";
+            if (start != null && end != null) {
+                filename += "_" + start.toLocalDate() + "_to_" + end.toLocalDate();
+            } else if (start != null) {
+                filename += "_from_" + start.toLocalDate();
+            } else {
+                filename += "_all_time";
+            }
+            filename += ".csv";
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType("text/csv"));
+            headers.setContentDispositionFormData("attachment", filename);
+            
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(csvContent);
+                    
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error generating CSV file: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Unexpected error: " + e.getMessage());
+        }
     }
 } 
