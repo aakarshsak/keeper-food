@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -22,6 +23,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/food-items")
 @CrossOrigin(origins = "http://localhost:3000")
+@PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
 public class FoodItemController {
     
     @Autowired

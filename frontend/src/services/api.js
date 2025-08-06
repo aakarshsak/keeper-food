@@ -9,6 +9,45 @@ const api = axios.create({
   },
 });
 
+// Add request interceptor to include token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle authentication errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Authentication API
+export const authAPI = {
+  register: (userData) => api.post('/auth/register', userData),
+  login: (credentials) => api.post('/auth/login', credentials),
+  logout: () => api.post('/auth/logout'),
+  verifyEmail: (verificationData) => api.post('/auth/verify-email', verificationData),
+  resendVerification: (emailData) => api.post('/auth/resend-verification', emailData),
+  forgotPassword: (emailData) => api.post('/auth/forgot-password', emailData),
+  resetPassword: (resetData) => api.post('/auth/reset-password', resetData),
+  getCurrentUser: () => api.get('/auth/me'),
+};
+
 // Food Items API
 export const foodItemsAPI = {
   // Get all food items

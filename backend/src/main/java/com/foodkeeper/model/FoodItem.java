@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Min;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 
@@ -39,6 +40,12 @@ public class FoodItem {
     @Column(name = "quantity")
     @Size(max = 50, message = "Quantity must not exceed 50 characters")
     private String quantity;
+    
+    // User association
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
+    private User user;
     
     // Constructors
     public FoodItem() {
@@ -112,6 +119,14 @@ public class FoodItem {
     
     public void setQuantity(String quantity) {
         this.quantity = quantity;
+    }
+    
+    public User getUser() {
+        return user;
+    }
+    
+    public void setUser(User user) {
+        this.user = user;
     }
     
     @Override

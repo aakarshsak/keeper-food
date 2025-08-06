@@ -1,10 +1,14 @@
 package com.foodkeeper.service;
 
 import com.foodkeeper.model.FoodItem;
+import com.foodkeeper.model.User;
 import com.foodkeeper.repository.FoodItemRepository;
+import com.foodkeeper.repository.UserRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,33 +25,49 @@ public class FoodItemService {
     @Autowired
     private FoodItemRepository foodItemRepository;
     
+    @Autowired
+    private UserRepository userRepository;
+    
     private static final DateTimeFormatter CSV_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     
-    // Get all food items ordered by creation date
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+    
+    // Get all food items for current user ordered by creation date
     public List<FoodItem> getAllFoodItems() {
-        return foodItemRepository.findAllByOrderByCreatedAtDesc();
+        User currentUser = getCurrentUser();
+        return foodItemRepository.findByUserOrderByCreatedAtDesc(currentUser);
     }
     
-    // Get food item by ID
+    // Get food item by ID for current user
     public Optional<FoodItem> getFoodItemById(Long id) {
-        return foodItemRepository.findById(id);
+        User currentUser = getCurrentUser();
+        return foodItemRepository.findByIdAndUser(id, currentUser);
     }
     
-    // Save a new food item
+    // Save a new food item for current user
     @Transactional
     public FoodItem saveFoodItem(FoodItem foodItem) {
+        User currentUser = getCurrentUser();
+        foodItem.setUser(currentUser);
+        
         if (foodItem.getCreatedAt() == null) {
             foodItem.setCreatedAt(LocalDateTime.now());
         }
-        System.out.println("About to save food item: " + foodItem);
+        System.out.println("About to save food item: " + foodItem + " for user: " + currentUser.getEmail());
         FoodItem saved = foodItemRepository.saveAndFlush(foodItem);
         System.out.println("Successfully saved food item with ID: " + saved.getId());
         return saved;
     }
     
-    // Update an existing food item
+    // Update an existing food item for current user
     public FoodItem updateFoodItem(Long id, com.fasterxml.jackson.databind.JsonNode requestBody) {
-        return foodItemRepository.findById(id)
+        User currentUser = getCurrentUser();
+        return foodItemRepository.findByIdAndUser(id, currentUser)
                 .map(existingItem -> {
                     existingItem.setName(requestBody.get("name").asText());
                     
@@ -93,46 +113,71 @@ public class FoodItemService {
                 .orElseThrow(() -> new RuntimeException("Food item not found with id: " + id));
     }
     
-    // Delete a food item
+    // Delete a food item for current user
     public void deleteFoodItem(Long id) {
-        if (foodItemRepository.existsById(id)) {
-            foodItemRepository.deleteById(id);
+        User currentUser = getCurrentUser();
+        Optional<FoodItem> foodItem = foodItemRepository.findByIdAndUser(id, currentUser);
+        
+        if (foodItem.isPresent()) {
+            foodItemRepository.delete(foodItem.get());
         } else {
-            throw new RuntimeException("Food item not found with id: " + id);
+            throw new RuntimeException("Food item not found or access denied with id: " + id);
         }
     }
     
-    // Search food items by name
+    // Search food items by name for current user
     public List<FoodItem> searchFoodItemsByName(String name) {
-        return foodItemRepository.findByNameContainingIgnoreCase(name);
+        User currentUser = getCurrentUser();
+        return foodItemRepository.findByUserAndNameContainingIgnoreCaseOrderByCreatedAtDesc(currentUser, name);
     }
     
-    // Get recently added items (last 7 days)
+    // Get recently added items (last 7 days) for current user
     public List<FoodItem> getRecentFoodItems() {
+        User currentUser = getCurrentUser();
         LocalDateTime weekAgo = LocalDateTime.now().minusDays(7);
-        return foodItemRepository.findRecentItems(weekAgo);
+        return foodItemRepository.findRecentItemsByUser(currentUser, weekAgo);
     }
     
-    // Get food items consumed recently (last 7 days)
+    // Get consumed food items for current user
     public List<FoodItem> getRecentlyConsumedItems() {
-        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-        return foodItemRepository.findByConsumedDateAfter(sevenDaysAgo);
+        User currentUser = getCurrentUser();
+        return foodItemRepository.findConsumedItemsByUser(currentUser);
     }
     
-    // Get total count of food items
+    // Get total count of food items for current user
     public long getTotalCount() {
-        return foodItemRepository.count();
+        User currentUser = getCurrentUser();
+        return foodItemRepository.countTotalItemsByUser(currentUser);
     }
     
-    // Get food items within a date range (based on creation date)
+    // Get food items within a date range for current user (based on creation date)
     public List<FoodItem> getFoodItemsByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        User currentUser = getCurrentUser();
         if (startDate != null && endDate != null) {
-            return foodItemRepository.findByCreatedAtBetween(startDate, endDate);
+            return foodItemRepository.findByUserAndConsumedDateBetween(currentUser, startDate, endDate);
         } else if (startDate != null) {
-            return foodItemRepository.findByCreatedAtAfter(startDate);
+            return foodItemRepository.findRecentItemsByUser(currentUser, startDate);
         } else {
-            return foodItemRepository.findAllByOrderByCreatedAtDesc();
+            return foodItemRepository.findByUserOrderByCreatedAtDesc(currentUser);
         }
+    }
+    
+    // Get food items with calories for current user
+    public List<FoodItem> getFoodItemsWithCalories() {
+        User currentUser = getCurrentUser();
+        return foodItemRepository.findItemsWithCaloriesByUser(currentUser);
+    }
+    
+    // Get total calories for current user
+    public Long getTotalCalories() {
+        User currentUser = getCurrentUser();
+        return foodItemRepository.getTotalCaloriesByUser(currentUser);
+    }
+    
+    // Get consumed items count for current user
+    public Long getConsumedItemsCount() {
+        User currentUser = getCurrentUser();
+        return foodItemRepository.countConsumedItemsByUser(currentUser);
     }
     
     // Export food items to CSV
